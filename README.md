@@ -4,7 +4,7 @@ Table of Contents
 
 * [Setting database up](#setting-database-up)
 * [Setting API Webservice](#Setting-API-Webservice)
-* [Mobile App](#web-app)
+* [Mobile App](#mobile-application)
 
 ## Setting database up
 I'll be utilizing a pure SQL connection without an ORM for a clearer understanding of the entire process. You can select only the necessary fields. For example, in the 'courses' table, you may create it with fields such as 'name,' 'description,' and 'max_number' for testing purposes.
@@ -351,13 +351,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 5. **Send POST Request:**
    - Use Volley to send a POST request to the `add_course.php` file on the localhost server.
      ```java
-     // Instantiate the RequestQueue.
+      // Instantiate the RequestQueue.
      RequestQueue queue = Volley.newRequestQueue(this);
      String url = "http://localhost/your_project_folder/add_course.php";
 
      // Create a HashMap with parameters for the new course.
      Map<String, String> params = new HashMap<>();
-     params.put("course_name", courseName);
+     params.put("name", courseName);
      params.put("category_id", categoryId);
      // Add other parameters as needed.
 
@@ -381,6 +381,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
      // Add the request to the RequestQueue.
      queue.add(stringRequest);
+
      ```
 6. **Handle PHP Script Response:**
    - In the `add_course.php` script on the server, handle the received POST data, validate it, and perform the necessary database operations. Respond with appropriate success or error messages.
@@ -391,36 +392,124 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 2. **Send POST Request:**
    - Use Volley to send a POST request to the `add_lecture_attendance.php` file on the localhost server.
      ```java
-     // Instantiate the RequestQueue.
-     RequestQueue queue = Volley.newRequestQueue(this);
-     String url = "http://localhost/your_project_folder/add_lecture_attendance.php";
-
-     // Create a HashMap with parameters for the new lecture attendance.
-     Map<String, String> params = new HashMap<>();
-     params.put("course_id", courseId);
-     params.put("lecture_number", lectureNumber);
-     params.put("attendance_code", attendanceCode);
-     // Add other parameters as needed.
-
-     // Create a StringRequest to make a POST request.
-     StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
-             response -> {
-                 // Show a Toast with the response message.
-                 Toast.makeText(AddLectureAttendanceActivity.this, response, Toast.LENGTH_SHORT).show();
-
-                 // Additional handling if needed.
-             },
-             error -> {
-                 // Handle errors that occur during the request.
-                 Toast.makeText(AddLectureAttendanceActivity.this, "Error occurred", Toast.LENGTH_SHORT).show();
-             }) {
-         @Override
-         protected Map<String, String> getParams() {
-             return params;
-         }
-     };
-
-     // Add the request to the RequestQueue.
-     queue.add(stringRequest);
+        RequestQueue queue = Volley.newRequestQueue(this);
+        String url = "http://localhost/your_project_folder/add_lecture_attendance.php";
+        
+        Map<String, String> params = new HashMap<>();
+        params.put("course_id", courseId);
+        params.put("number", lectureNumber); 
+        params.put("code", attendanceCode);
+        params.put("closed", "false"); 
+        // Add other parameters as needed.
+        
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                response -> {
+                    // Show a Toast with the response message.
+                    Toast.makeText(AddLectureAttendanceActivity.this, response, Toast.LENGTH_SHORT).show();
+        
+                    // Additional handling if needed.
+                },
+                error -> {
+                    // Handle errors that occur during the request.
+                    Toast.makeText(AddLectureAttendanceActivity.this, "Error occurred", Toast.LENGTH_SHORT).show();
+                }) {
+            @Override
+            protected Map<String, String> getParams() {
+                return params;
+            }
+        };
+        
+        // Add the request to the RequestQueue.
+        queue.add(stringRequest);
      ```
+
+### Scan QR Code for Attendance
+
+1. **Integrate ZXing Library:**
+   - Add the ZXing library dependency to your app's `build.gradle` file:
+     ```gradle
+     implementation 'com.google.zxing:core:3.4.0'
+     implementation 'com.journeyapps:zxing-android-embedded:4.0.0'
+     ```
+
+2. **Create Scan Activity:**
+   - Create a new activity named "ScanAttendanceActivity" to handle the QR code scanning.
+
+3. **Launch ZXing Intent:**
+   - In the `ScanAttendanceActivity` Java code, launch the ZXing scanner by creating an Intent:
+     ```java
+     IntentIntegrator integrator = new IntentIntegrator(this);
+     integrator.setOrientationLocked(false);
+     integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE);
+     integrator.setPrompt("Scan the subscriber's QR code");
+     integrator.initiateScan();
+     ```
+
+4. **Handle Scan Result:**
+   - Override the `onActivityResult` method to handle the scan result:
+     ```java
+     @Override
+     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+         IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+         if (result != null) {
+             if (result.getContents() != null) {
+                 // Extract subscriber ID from the QR code result.
+                 String subscriberId = result.getContents();
+
+                 // Send a POST request to add attendance using Volley.
+                 sendAttendanceRequest(subscriberId);
+             }
+         } else {
+             super.onActivityResult(requestCode, resultCode, data);
+         }
+     }
+     ```
+
+5. **Send POST Request:**
+   - Implement the `sendAttendanceRequest` method to use Volley for sending a POST request to the `add_attendance_m2m.php` file on the localhost server:
+     ```java
+       private void sendAttendanceRequest(String subscriberId) {
+          // Instantiate the RequestQueue.
+          RequestQueue queue = Volley.newRequestQueue(this);
+          String url = "http://localhost/your_project_folder/add_attendance_m2m.php";
+      
+          // Create a HashMap with parameters for adding attendance.
+          Map<String, String> params = new HashMap<>();
+          params.put("course_subs_id", subscriberId); // Assuming the subscriberId is the course_subs_id.
+          params.put("course_attendance_id", courseId); // Assuming courseId is the course_attendance_id.
+          params.put("lecture_number", lectureNumber); // Assuming lectureNumber is needed.
+          params.put("attendance_date", getCurrentDate()); // Example: Include the attendance date.
+          // Add other parameters as needed.
+      
+          // Create a StringRequest to make a POST request.
+          StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                  response -> {
+                      // Show a Toast with the response message.
+                      Toast.makeText(ScanAttendanceActivity.this, response, Toast.LENGTH_SHORT).show();
+      
+                      // Additional handling if needed.
+                  },
+                  error -> {
+                      // Handle errors that occur during the request.
+                      Toast.makeText(ScanAttendanceActivity.this, "Error occurred", Toast.LENGTH_SHORT).show();
+                  }) {
+              @Override
+              protected Map<String, String> getParams() {
+                  return params;
+              }
+          };
+      
+          // Add the request to the RequestQueue.
+          queue.add(stringRequest);
+      }
+      
+      // Example method to get the current date in a specific format.
+      private String getCurrentDate() {
+          SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+          return sdf.format(new Date());
+      }
+     ```
+
+These steps provide a basic guide for integrating ZXing for QR code scanning and sending a POST request to add attendance in the Android app using Java and Volley. Adjust the code and steps according to your specific requirements and project structure.
+
 
