@@ -3,7 +3,7 @@ Table of Contents
 =================
 
 * [Setting database up](#setting-database-up)
-* [Setting API Webservice](#api)
+* [Setting API Webservice](#Setting-API-Webservice)
 * [Mobile App](#web-app)
 
 ## Setting database up
@@ -328,4 +328,99 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ```
 5. get course lecture list.
   you can do it yourself based on the information provided
+
+### Mobile Application
+
+## Add New Course Activity
+
+1. **Create New Activity:**
+   - In your Android Studio project, create a new activity named "AddNewCourseActivity" to handle the addition of a new course.
+
+2. **Design UI Layout:**
+   - Design the UI layout for the "AddNewCourseActivity" in the associated XML file (`activity_add_new_course.xml`). Include necessary input fields such as EditText for course name, description, etc., and a Button to submit the new course.
+
+3. **Add Volley Dependency:**
+   - Add the Volley library dependency to your app's `build.gradle` file:
+     ```gradle
+     implementation 'com.android.volley:volley:1.2.0'
+     ```
+
+4. **Handle Button Click:**
+   - In the Java code for `AddNewCourseActivity`, handle the button click event to initiate the data submission using Volley.
+
+5. **Send POST Request:**
+   - Use Volley to send a POST request to the `add_course.php` file on the localhost server.
+     ```java
+     // Instantiate the RequestQueue.
+     RequestQueue queue = Volley.newRequestQueue(this);
+     String url = "http://localhost/your_project_folder/add_course.php";
+
+     // Create a HashMap with parameters for the new course.
+     Map<String, String> params = new HashMap<>();
+     params.put("course_name", courseName);
+     params.put("category_id", categoryId);
+     // Add other parameters as needed.
+
+     // Create a StringRequest to make a POST request.
+     StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+             response -> {
+                 // Show a Toast with the response message.
+                 Toast.makeText(AddNewCourseActivity.this, response, Toast.LENGTH_SHORT).show();
+
+                 // Additional handling if needed.
+             },
+             error -> {
+                 // Handle errors that occur during the request.
+                 Toast.makeText(AddNewCourseActivity.this, "Error occurred", Toast.LENGTH_SHORT).show();
+             }) {
+         @Override
+         protected Map<String, String> getParams() {
+             return params;
+         }
+     };
+
+     // Add the request to the RequestQueue.
+     queue.add(stringRequest);
+     ```
+6. **Handle PHP Script Response:**
+   - In the `add_course.php` script on the server, handle the received POST data, validate it, and perform the necessary database operations. Respond with appropriate success or error messages.
+
+## Adding New Lecture Attendance for the Course
+1. Previous steps.
+
+2. **Send POST Request:**
+   - Use Volley to send a POST request to the `add_lecture_attendance.php` file on the localhost server.
+     ```java
+     // Instantiate the RequestQueue.
+     RequestQueue queue = Volley.newRequestQueue(this);
+     String url = "http://localhost/your_project_folder/add_lecture_attendance.php";
+
+     // Create a HashMap with parameters for the new lecture attendance.
+     Map<String, String> params = new HashMap<>();
+     params.put("course_id", courseId);
+     params.put("lecture_number", lectureNumber);
+     params.put("attendance_code", attendanceCode);
+     // Add other parameters as needed.
+
+     // Create a StringRequest to make a POST request.
+     StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+             response -> {
+                 // Show a Toast with the response message.
+                 Toast.makeText(AddLectureAttendanceActivity.this, response, Toast.LENGTH_SHORT).show();
+
+                 // Additional handling if needed.
+             },
+             error -> {
+                 // Handle errors that occur during the request.
+                 Toast.makeText(AddLectureAttendanceActivity.this, "Error occurred", Toast.LENGTH_SHORT).show();
+             }) {
+         @Override
+         protected Map<String, String> getParams() {
+             return params;
+         }
+     };
+
+     // Add the request to the RequestQueue.
+     queue.add(stringRequest);
+     ```
 
