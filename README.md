@@ -510,6 +510,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       }
      ```
 
-These steps provide a basic guide for integrating ZXing for QR code scanning and sending a POST request to add attendance in the Android app using Java and Volley. Adjust the code and steps according to your specific requirements and project structure.
-
-
+This outlines the basic idea of creating a simple QR code scanning system with a database attached, facilitated by a PHP API for record course attendance.
