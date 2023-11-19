@@ -33,7 +33,7 @@ I'll be utilizing a pure SQL connection without an ORM for a clearer understandi
     | Field Name         | Data Type  | Primary Key | Not Null | Foreign Key       |
     |--------------------|------------|-------------|----------|-------------------|
     | id                 | INT        | Yes         | Yes      |                   |
-    | profile_id         | INT        |             | Yes      | Yes (Profiles)    |
+    | name         | VARCHAR(255)        |             | Yes      |     |
     | course_id          | INT        |             | Yes      | Yes (Courses)     |
   
     b. **course_subs_attendance Table**: associated with the course_subs table in a many-to-many (m2m) relationship. This table is designed to manage additional attendance records for subscribers, particularly in situations where a course comprises multiple lectures.
@@ -53,32 +53,78 @@ I'll be utilizing a pure SQL connection without an ORM for a clearer understandi
  | number        | INT        |             | Yes      |               |
  | code          | VARCHAR(30)|             |          |               |
  | closed        | BOOLEAN    |             | Yes      |               |
- | created_date  | DATETIME   |             |          |               |
+ | created_date  | DATETIME   |             |          |               
+
+ ### Database diagram
+ ```mermaid
+classDiagram
+  class Courses {
+    +id: INT (PK, NN)
+    +name: VARCHAR(255) (NN)
+    +category_id: INT (NN, FK)
+    +type: VARCHAR(50)
+    +outside_university: BOOLEAN
+    +description: TEXT (NN)
+    +social_group: VARCHAR(255)
+    +place: VARCHAR(255) (NN)
+    +max_number: INT (NN)
+    +exam_required: BOOLEAN
+    +lectures: INT
+  }
+
+  class CourseAttendance {
+    +id: INT (PK, NN)
+    +course_id: INT (NN, FK)
+    +number: INT (NN)
+    +code: VARCHAR(30)
+    +closed: BOOLEAN (NN)
+    +created_date: DATETIME
+  }
+
+  class CourseSubs {
+    +id: INT (PK, NN)
+    +name: VARCHAR(255) (NN)
+    +course_id: INT (NN, FK)
+  }
+
+  class CourseSubsAttendance {
+    +id: INT (PK, NN)
+    +course_subs_id: INT (NN, FK)
+    +course_attendance_id: INT (NN, FK)
+  }
+
+CourseSubsAttendance -- CourseSubs: course_subs_id --> id
+CourseSubsAttendance -- CourseAttendance: course_attendance_id --> id
+
+```
 
 ## Setting API Webservice
 In this step, we'll simplify the process using straightforward PHP statements. We'll create PHP files that handle requests from the mobile app, making it easy for us to understand the entire flow.
-### 1. init.php
+### 1. Adding a New Course
+- Initiate the process by adding a new course.
+
+### 2. Adding New Lecture Attendance for the Course
+- Record attendance for each lecture associated with the course.
+
+### 3. Adding Attendance in the m2m Table
+- Update the many-to-many (m2m) table to track attendance, indicating that a particular `CourseSubs` has attended the course.
+
+### 4. Retrieve the Subscribers for the Course
+- Fetch the list of subscribers enrolled in the course.
+
+### 5. Retrieve the Attendance List for Every Lecture
+- Access the attendance records for each lecture, providing a comprehensive list.
+
+### init.php
   add the database credincials
   ```php
     <?php
-    
+
+function connectDB() {
     $database_host = "your_database_host";
     $database_username = "your_database_username";
     $database_password = "your_database_password";
     $database_name = "your_database_name";
-    
-    ?>
-```
-### 2. init.php
-### 1. add_course.php
-
-```php
-<?php
-include('db_credentials.php');
-
-// Function to establish a database connection
-function connectDB() {
-    global $database_host, $database_username, $database_password, $database_name;
 
     $conn = new mysqli($database_host, $database_username, $database_password, $database_name);
 
@@ -88,6 +134,16 @@ function connectDB() {
 
     return $conn;
 }
+
+?>
+
+```
+### 1. add_course.php
+
+```php
+<?php
+
+include('init.php');
 
 // Function to add a new course
 function addCourse($name, $category_id, $type, $outside_university, $description, $social_group, $place, $max_number, $exam_required, $lectures) {
@@ -130,4 +186,146 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 ?>
 ```
+
+### 2. add_lecture_attendance.php
+```php
+<?php
+
+include('init.php');
+
+// Function to add new lecture attendance for a course
+function addLectureAttendance($course_id, $number, $code, $closed) {
+    $conn = connectDB();
+
+    // Use prepared statement to prevent SQL injection
+    $sql = "INSERT INTO course_attendance (course_id, number, code, closed) VALUES (?, ?, ?, ?)";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("iiss", $course_id, $number, $code, $closed);
+
+    if ($stmt->execute()) {
+        echo "New lecture attendance added successfully!";
+    } else {
+        echo "Error: " . $stmt->error;
+    }
+
+    $stmt->close();
+    $conn->close();
+}
+
+// Check if the request is a POST request
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Get data from the POST request
+    $course_id = $_POST["course_id"];
+    $number = $_POST["number"];
+    $code = $_POST["code"];
+    $closed = $_POST["closed"];
+
+    // Call the function to add new lecture attendance
+    addLectureAttendance($course_id, $number, $code, $closed);
+} else {
+    echo "Invalid request method!";
+}
+
+?>
+```
+### 3.add_attendance_m2m.php
+```php
+<?php
+
+include('init.php');
+
+// Function to add attendance in the m2m table
+function addAttendanceM2M($course_subs_id, $course_attendance_id) {
+    $conn = connectDB();
+
+    // Use prepared statement to prevent SQL injection
+    $sql_insert = "INSERT INTO course_subs_attendance (course_subs_id, course_attendance_id) VALUES (?, ?)";
+    $stmt_insert = $conn->prepare($sql_insert);
+    $stmt_insert->bind_param("ii", $course_subs_id, $course_attendance_id);
+
+    if ($stmt_insert->execute()) {
+        // Retrieve the course_subs name for display
+        $sql_select_name = "SELECT name FROM course_subs WHERE id = ?";
+        $stmt_select_name = $conn->prepare($sql_select_name);
+        $stmt_select_name->bind_param("i", $course_subs_id);
+        $stmt_select_name->execute();
+        $stmt_select_name->bind_result($course_subs_name);
+        $stmt_select_name->fetch();
+        $stmt_select_name->close();
+
+        echo "Attendance added in the m2m table for course_subs: $course_subs_name successfully!";
+    } else {
+        echo "Error: " . $stmt_insert->error;
+    }
+
+    $stmt_insert->close();
+    $conn->close();
+}
+
+// Check if the request is a POST request
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Get data from the POST request
+    $course_subs_id = $_POST["course_subs_id"];
+    $course_attendance_id = $_POST["course_attendance_id"];
+
+    // Call the function to add attendance in the m2m table
+    addAttendanceM2M($course_subs_id, $course_attendance_id);
+} else {
+    echo "Invalid request method!";
+}
+
+?>
+```
+4. get_course_subscribers.php
+```php
+<?php
+
+include('init.php');
+
+// Function to retrieve subscribers for a course
+function getCourseSubscribers($course_id) {
+    $conn = connectDB();
+
+    // Use prepared statement to prevent SQL injection
+    $sql = "SELECT id, name FROM course_subs WHERE course_id = ?";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $course_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $subscribers = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $subscribers[] = [
+            'id' => $row['id'],
+            'name' => $row['name'],
+        ];
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    return $subscribers;
+}
+
+// Check if the request is a POST request
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Get data from the POST request
+    $course_id = $_POST["course_id"];
+
+    // Call the function to retrieve subscribers for the course
+    $subscribers = getCourseSubscribers($course_id);
+
+    // Output the result as JSON
+    header('Content-Type: application/json');
+    echo json_encode($subscribers);
+} else {
+    echo "Invalid request method!";
+}
+
+?>
+```
+5. get course lecture list.
+  you can do it yourself based on the information provided
 
